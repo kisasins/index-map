@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Логистический Поиск Индексов</title>
+    <style>
+        body { font-family: 'Segoe UI', Roboto, sans-serif; background: #f0f2f5; display: flex; justify-content: center; padding: 40px 20px; margin: 0; }
+        .box { background: white; padding: 30px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); width: 100%; max-width: 500px; }
+        h2 { text-align: center; color: #1a73e8; margin-top: 0; margin-bottom: 20px; font-size: 22px; }
+        
+        .input-group { position: relative; margin-bottom: 20px; }
+        input { width: 100%; padding: 14px 18px; border: 2px solid #e0e0e0; border-radius: 10px; box-sizing: border-box; font-size: 16px; transition: 0.3s; outline: none; }
+        input:focus { border-color: #1a73e8; box-shadow: 0 0 0 4px rgba(26,115,232,0.1); }
+        
+        #res { max-height: 450px; overflow-y: auto; border-radius: 8px; background: #fff; }
+        .item { padding: 14px; border-bottom: 1px solid #f1f3f4; display: flex; justify-content: space-between; align-items: center; transition: 0.2s; cursor: default; }
+        .item:last-child { border-bottom: none; }
+        .item:hover { background: #f8f9fa; }
+        
+        .city-info { display: flex; flex-direction: column; }
+        .city-name { color: #3c4043; font-weight: 500; font-size: 15px; text-transform: capitalize; }
+        .zip-badge { background: #e6f4ea; color: #1e8e3e; font-weight: bold; font-size: 18px; padding: 6px 12px; border-radius: 6px; font-family: monospace; }
+        
+        .no-data { text-align: center; color: #70757a; margin-top: 30px; line-height: 1.5; }
+        .count-info { font-size: 12px; color: #9aa0a6; text-align: center; margin-top: 10px; }
+        
+        /* Стилизация скролла */
+        #res::-webkit-scrollbar { width: 6px; }
+        #res::-webkit-scrollbar-thumb { background: #dadce0; border-radius: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="box">
+    <h2>Поиск индекса</h2>
+    <div class="input-group">
+        <input type="text" id="cityInput" placeholder="Введите город (Amsterdam или Амстердам)" oninput="search()">
+    </div>
+    <div id="res">
+        <div class="no-data">Начните вводить название города...</div>
+    </div>
+    <div id="counter" class="count-info"></div>
+</div>
+
+<!-- ПОДКЛЮЧЕНИЕ ТВОЕЙ БАЗЫ -->
+<script src="data.js"></script>
+
+<script>
+    // Карта транслитерации для поддержки русского языка
+    const translitMap = {
+        'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ё': 'e', 'ж': 'zh', 
+        'з': 'z', 'и': 'i', 'й': 'y', 'к': 'k', 'л': 'l', 'м': 'm', 'н': 'n', 'о': 'o', 
+        'п': 'p', 'р': 'r', 'с': 's', 'т': 't', 'у': 'u', 'ф': 'f', 'х': 'h', 'ц': 'c', 
+        'ч': 'ch', 'ш': 'sh', 'щ': 'sch', 'ь': '', 'ы': 'y', 'ъ': '', 'э': 'e', 'ю': 'yu', 'я': 'ya'
+    };
+
+    function translate(text) {
+        return text.split('').map(char => translitMap[char.toLowerCase()] || char).join('');
+    }
+
+    function search() {
+        const display = document.getElementById('res');
+        const counter = document.getElementById('counter');
+        const rawInput = document.getElementById('cityInput').value.trim();
+        
+        if (rawInput.length < 2) {
+            display.innerHTML = '<div class="no-data">Введите минимум 2 буквы для поиска...</div>';
+            counter.innerText = "";
+            return;
+        }
+
+        // Конвертируем ввод (если русский -> в латиницу)
+        const query = translate(rawInput).toLowerCase();
+
+        // Поиск по DATABASE (переменная из data.js)
+        const results = DATABASE.filter(obj => {
+            const val = Object.values(obj)[0].toLowerCase();
+            return val.includes(query);
+        });
+
+        if (results.length > 0) {
+            display.innerHTML = "";
+            counter.innerText = `Найдено совпадений: ${results.length}`;
+            
+            // Ограничиваем вывод 100 результатами для скорости
+            results.slice(0, 100).forEach(obj => {
+                const fullValue = Object.values(obj)[0];
+                
+                // Извлекаем цифры (индекс) и текст (город)
+                const zip = fullValue.match(/\d+/) || ["---"];
+                const city = fullValue.replace(/\d+/, "").trim();
+                
+                display.innerHTML += `
+                    <div class="item">
+                        <div class="city-info">
+                            <span class="city-name">${city}</span>
+                        </div>
+                        <div class="zip-badge">${zip[0]}</div>
+                    </div>`;
+            });
+        } else {
+            display.innerHTML = '<div class="no-data" style="color:#d93025">Город не найден в базе данных</div>';
+            counter.innerText = "";
+        }
+    }
+
+    // Проверка загрузки базы
+    window.onload = () => {
+        if (typeof DATABASE === 'undefined') {
+            document.getElementById('res').innerHTML = '<div class="no-data" style="color:red">Ошибка: файл data.js не найден или поврежден!</div>';
+        }
+    };
+</script>
+
+</body>
+</html>
